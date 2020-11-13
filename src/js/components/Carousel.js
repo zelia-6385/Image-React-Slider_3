@@ -57,7 +57,10 @@ export class Carousel extends PureComponent {
           this.cardContainer.children[0]
         )
         this.cardContainer.append(firstCardClone)
-        this.moveCard(0.0, widthCard)
+        this.moveCard({
+          transitionDuration: 0.0,
+          transform: widthCard
+        })
       }
     )
 
@@ -178,7 +181,10 @@ export class Carousel extends PureComponent {
       () => {
         const { widthCard, currentCard } = this.state
 
-        this.moveCard(0.0, widthCard * currentCard)
+        this.moveCard({
+          transitionDuration: 0.0,
+          transform: widthCard * currentCard
+        })
       }
     )
   }
@@ -205,157 +211,111 @@ export class Carousel extends PureComponent {
           ...this.state,
           change: 0
         },
-        () => this.moveCard(0.5, null)
+        () =>
+          this.moveCard({
+            transitionDuration: 0.5,
+            transform: null
+          })
       )
     }
   }
 
-  // Новая функция по перемещению слайдов
-  handleMoveSlide = valueOn => {
-    if (valueOn === 'next') {
-      this.changeBooleanValue('next')
-    }
-    if (valueOn === 'previos') {
-      this.changeBooleanValue('previos')
-    }
-  }
+  // Новая функция для перемещения слайдов
+  handleMoveCard = () => {
+    const { widthCard, currentCard, next, previos } = this.state
 
-  updateNewCurrentCard = () => {
-    const { currentCard, next, previos } = this.state
+    const cardArrayLength = this.cardContainer.children.length
 
-    let newCurrentCard = null
+    this.moveCard({
+      transitionDuration: 0.5,
+      transform: widthCard * currentCard
+    })
 
-    if (next) {
-      if (previos) {
-        this.setState({
-          ...this.state,
-          previos: !previos
+    if (next && currentCard === cardArrayLength - 1) {
+      this.moveCardDeferredСall(1, () => {
+        this.moveCard({
+          transitionDuration: 0.0,
+          transform: widthCard
         })
-      }
-
-      newCurrentCard = currentCard + 1
-
-      this.setNewCurrentCard(newCurrentCard, this.handleNextMoveCard)
+      })
     }
 
-    if (previos) {
-      if (next) {
-        this.setState({
-          ...this.state,
-          next: !next
+    if (previos && currentCard === 0) {
+      this.moveCardDeferredСall(cardArrayLength - 2, () => {
+        this.moveCard({
+          transitionDuration: 0.0,
+          transform: widthCard * (cardArrayLength - 2)
         })
-      }
-
-      newCurrentCard = currentCard - 1
-
-      this.setNewCurrentCard(newCurrentCard, this.handlePreviosMoveCard)
+      })
     }
   }
 
-  setNewCurrentCard = (newCurrentCard, callback) => {
-    this.setState(
-      {
-        ...this.state,
-        currentCard: newCurrentCard,
-        change: 0
-      },
-      callback
-    )
-  }
-
-  changeBooleanValue = stateElem => {
-    this.setState(
-      {
-        ...this.state,
-        [stateElem]: !this.state.stateElem
-      },
-      this.updateNewCurrentCard
-    )
+  moveCardDeferredСall = (currentCard, callback) => {
+    setTimeout(() => {
+      this.setState(
+        {
+          ...this.state,
+          currentCard: currentCard,
+          change: 0
+        },
+        callback
+      )
+    }, 502)
   }
 
   // move to the next slide
   handleNext = () => {
-    const { currentCard } = this.state
+    const { currentCard, next } = this.state
+    let newCurrentCard = currentCard + 1
 
-    if (currentCard < this.cardContainer.children.length - 1) {
-      let newCurrentCard = currentCard + 1
-
+    if (!next) {
+      this.setState(
+        {
+          ...this.state,
+          currentCard: newCurrentCard,
+          change: 0,
+          previos: false,
+          next: true
+        },
+        this.handleMoveCard
+      )
+    } else {
       this.setState(
         {
           ...this.state,
           currentCard: newCurrentCard,
           change: 0
         },
-        this.handleNextMoveCard
-      )
-    }
-  }
-
-  handleNextMoveCard = () => {
-    const { widthCard, currentCard } = this.state
-
-    this.moveCard(0.5, widthCard * currentCard)
-
-    if (currentCard === this.cardContainer.children.length - 1) {
-      setTimeout(
-        () =>
-          this.setState(
-            {
-              ...this.state,
-              currentCard: 1,
-              change: 0
-            },
-            () => {
-              const { widthCard } = this.state
-              this.moveCard(0.0, widthCard)
-            }
-          ),
-        502
+        this.handleMoveCard
       )
     }
   }
 
   // move to the previos slide
   handlePrevios = () => {
-    const { currentCard } = this.state
+    const { currentCard, previos } = this.state
+    let newCurrentCard = currentCard - 1
 
-    if (this.state.currentCard > 0) {
-      let newCurrentCard = currentCard - 1
-
+    if (!previos) {
+      this.setState(
+        {
+          ...this.state,
+          currentCard: newCurrentCard,
+          change: 0,
+          previos: true,
+          next: false
+        },
+        this.handleMoveCard
+      )
+    } else {
       this.setState(
         {
           ...this.state,
           currentCard: newCurrentCard,
           change: 0
         },
-        this.handlePreviosMoveCard
+        this.handleMoveCard
       )
-    }
-  }
-
-  handlePreviosMoveCard = () => {
-    const { widthCard, currentCard } = this.state
-
-    this.moveCard(0.5, widthCard * currentCard)
-
-    if (currentCard === 0) {
-      setTimeout(() => {
-        this.setState(
-          {
-            ...this.state,
-            currentCard: this.cardContainer.children.length - 2,
-            change: 0
-          },
-          () => {
-            const { widthCard } = this.state
-
-            this.moveCard(
-              0.0,
-              widthCard * (this.cardContainer.children.length - 2)
-            )
-          }
-        )
-      }, 502)
     }
   }
 
@@ -366,7 +326,7 @@ export class Carousel extends PureComponent {
     if (!timerIdAuto) {
       this.setState({
         ...this.state,
-        timerIdAuto: setInterval(() => this.handleMoveSlide('next'), 2000)
+        timerIdAuto: setInterval(this.handleNext, 2000)
       })
     } else {
       clearInterval(timerIdAuto)
@@ -387,13 +347,16 @@ export class Carousel extends PureComponent {
       () => {
         const { currentCard, widthCard } = this.state
 
-        this.moveCard(0.5, widthCard * currentCard)
+        this.moveCard({
+          transitionDuration: 0.5,
+          transform: widthCard * currentCard
+        })
       }
     )
   }
 
   // method for change transform / transition css props
-  moveCard = (transitionDuration, transform) => {
+  moveCard = ({ transitionDuration, transform }) => {
     this.cardContainer.style.transitionDuration = `${transitionDuration}s`
     this.cardContainer.style.transform = `translate(-${transform}px)`
   }
@@ -411,16 +374,10 @@ export class Carousel extends PureComponent {
     return (
       <div className="carousel">
         <div className="carousel__controls">
-          <button
-            onClick={() => this.handleMoveSlide('previos')}
-            className="carousel__button"
-          >
+          <button onClick={this.handlePrevios} className="carousel__button">
             Previous
           </button>
-          <button
-            onClick={() => this.handleMoveSlide('next')}
-            className="carousel__button"
-          >
+          <button onClick={this.handleNext} className="carousel__button">
             Next
           </button>
           <button onClick={this.handleAutorun} className="carousel__button">
