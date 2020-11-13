@@ -33,10 +33,6 @@ export class Carousel extends PureComponent {
     this.img = new Image()
   }
 
-  static propTypes = {
-    images: PropTypes.arrayOf(PropTypes.string.isRequired)
-  }
-
   componentDidMount() {
     // creating fake cards
     const firstCardClone = this.cardContainer.children[0].cloneNode(true)
