@@ -1,6 +1,7 @@
 import React, { PureComponent } from 'react'
 import PropTypes from 'prop-types'
 import Dots from './Dots'
+import EmptyCarousel from './EmptyCarousel'
 
 export class Carousel extends PureComponent {
   constructor(props) {
@@ -31,50 +32,85 @@ export class Carousel extends PureComponent {
     this.handleTouchMove.passive = false
 
     this.img = new Image()
+
+    this.childrenArr = React.Children.toArray(this.props.children)
+
+    this.children = this.childrenArr.map((child, i) => (
+      <div className="card" key={i}>
+        {child}
+      </div>
+    ))
+  }
+
+  static propTypes = {
+    images: PropTypes.arrayOf(PropTypes.string.isRequired)
   }
 
   componentDidMount() {
-    // creating fake cards
-    const firstCardClone = this.cardContainer.children[0].cloneNode(true)
-    const lastCardClone = this.cardContainer.children[
-      this.cardContainer.children.length - 1
-    ].cloneNode(true)
-
     this.img.src =
       'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs='
 
-    // initial change state
-    this.setState(
-      {
+    if (this.childrenArr.length > 1) {
+      // creating fake cards
+      const firstCardClone = this.cardContainer.children[0].cloneNode(true)
+      const lastCardClone = this.cardContainer.children[
+        this.cardContainer.children.length - 1
+      ].cloneNode(true)
+
+      // initial change state
+      this.setState(
+        {
+          ...this.state,
+          widthCard: this.cardContainer.children[0].offsetWidth
+        },
+        () => {
+          const { widthCard } = this.state
+
+          this.cardContainer.insertBefore(
+            lastCardClone,
+            this.cardContainer.children[0]
+          )
+          this.cardContainer.append(firstCardClone)
+          this.moveCard({
+            transitionDuration: 0.0,
+            transform: widthCard
+          })
+        }
+      )
+    } else {
+      // initial change state
+      this.setState({
         ...this.state,
         widthCard: this.cardContainer.children[0].offsetWidth
-      },
-      () => {
-        const { widthCard } = this.state
-
-        this.cardContainer.insertBefore(
-          lastCardClone,
-          this.cardContainer.children[0]
-        )
-        this.cardContainer.append(firstCardClone)
-        this.moveCard({
-          transitionDuration: 0.0,
-          transform: widthCard
-        })
-      }
-    )
+      })
+    }
 
     // add event listener for resize
-    window.addEventListener('resize', this.resizeWidth)
+    const debounce = (func, delay) => {
+      let inDebounce
+      return function () {
+        const context = this
+        const args = arguments
+        clearTimeout(inDebounce)
+        inDebounce = setTimeout(() => func.apply(context, args), delay)
+      }
+    }
+
+    window.addEventListener('resize', debounce(this.resizeWidth, 12))
   }
 
   componentWillUnmount() {
-    window.removeEventListener('resize', this.resizeWidth)
+    window.removeEventListener('resize', debounce(this.resizeWidth, 12))
   }
 
   // event handlers
   handleDragStart = e => {
     e.dataTransfer.setDragImage(this.img, -10, -10)
+
+    if (this.childrenArr.length <= 1) {
+      return
+    }
+
     this.setState({
       ...this.state,
       timerId: setInterval(() => {
@@ -118,6 +154,10 @@ export class Carousel extends PureComponent {
   }
 
   handleTouchStart = e => {
+    if (this.childrenArr.length <= 1) {
+      return
+    }
+
     this.setState({
       ...this.state,
       timerId: setInterval(() => {
@@ -173,20 +213,27 @@ export class Carousel extends PureComponent {
 
   // method for adaptive change slider
   resizeWidth = () => {
-    this.setState(
-      {
+    if (this.childrenArr.length <= 1) {
+      this.setState({
         ...this.state,
         widthCard: this.cardContainer.children[0].offsetWidth
-      },
-      () => {
-        const { widthCard, currentCard } = this.state
+      })
+    } else {
+      this.setState(
+        {
+          ...this.state,
+          widthCard: this.cardContainer.children[0].offsetWidth
+        },
+        () => {
+          const { widthCard, currentCard } = this.state
 
-        this.moveCard({
-          transitionDuration: 0.0,
-          transform: widthCard * currentCard
-        })
-      }
-    )
+          this.moveCard({
+            transitionDuration: 0.0,
+            transform: widthCard * currentCard
+          })
+        }
+      )
+    }
   }
 
   // method for move slides with swipe and drag and drop effects
@@ -201,7 +248,11 @@ export class Carousel extends PureComponent {
           ...this.state,
           change: 0
         },
-        () => this.moveCard(0.5, null)
+        () =>
+          this.moveCard({
+            transitionDuration: 0.5,
+            transform: null
+          })
       )
     } else if (change < 0 && change < -widthCard / 2) {
       this.handlePrevios()
@@ -220,7 +271,62 @@ export class Carousel extends PureComponent {
     }
   }
 
-  // Новая функция для перемещения слайдов
+  // move to the next slide
+  handleNext = () => {
+    const { currentCard, next } = this.state
+    let newCurrentCard = currentCard + 1
+
+    if (!next) {
+      this.setState(
+        {
+          ...this.state,
+          currentCard: newCurrentCard,
+          change: 0,
+          previos: false,
+          next: true
+        },
+        this.handleMoveCard
+      )
+    } else {
+      this.setState(
+        {
+          ...this.state,
+          currentCard: newCurrentCard,
+          change: 0
+        },
+        this.handleMoveCard
+      )
+    }
+  }
+
+  // move to the previos slide
+  handlePrevios = () => {
+    const { currentCard, previos } = this.state
+    let newCurrentCard = currentCard - 1
+    if (!previos) {
+      this.setState(
+        {
+          ...this.state,
+          currentCard: newCurrentCard,
+          change: 0,
+          previos: true,
+          next: false
+        },
+        this.handleMoveCard
+      )
+    } else {
+      this.setState(
+        {
+          ...this.state,
+          currentCard: newCurrentCard,
+          change: 0
+        },
+        this.handleMoveCard
+      )
+    }
+  }
+
+  // callback for move card
   handleMoveCard = () => {
     const { widthCard, currentCard, next, previos } = this.state
 
@@ -261,62 +367,6 @@ export class Carousel extends PureComponent {
         callback
       )
     }, 502)
-  }
-
-  // move to the next slide
-  handleNext = () => {
-    const { currentCard, next } = this.state
-    let newCurrentCard = currentCard + 1
-
-    if (!next) {
-      this.setState(
-        {
-          ...this.state,
-          currentCard: newCurrentCard,
-          change: 0,
-          previos: false,
-          next: true
-        },
-        this.handleMoveCard
-      )
-    } else {
-      this.setState(
-        {
-          ...this.state,
-          currentCard: newCurrentCard,
-          change: 0
-        },
-        this.handleMoveCard
-      )
-    }
-  }
-
-  // move to the previos slide
-  handlePrevios = () => {
-    const { currentCard, previos } = this.state
-    let newCurrentCard = currentCard - 1
-
-    if (!previos) {
-      this.setState(
-        {
-          ...this.state,
-          currentCard: newCurrentCard,
-          change: 0,
-          previos: true,
-          next: false
-        },
-        this.handleMoveCard
-      )
-    } else {
-      this.setState(
-        {
-          ...this.state,
-          currentCard: newCurrentCard,
-          change: 0
-        },
-        this.handleMoveCard
-      )
-    }
   }
 
   // method for run and stop autorun
@@ -362,28 +412,23 @@ export class Carousel extends PureComponent {
   }
 
   render() {
-    const { currentCard, timerIdAuto, change } = this.state
-
-    const childrenArr = React.Children.toArray(this.props.children)
-    const children = childrenArr.map((child, i) => (
-      <div className="card" key={i}>
-        {child}
-      </div>
-    ))
+    const { currentCard, timerIdAuto, change, width, height } = this.state
 
     return (
       <div className="carousel">
-        <div className="carousel__controls">
-          <button onClick={this.handlePrevios} className="carousel__button">
-            Previous
-          </button>
-          <button onClick={this.handleNext} className="carousel__button">
-            Next
-          </button>
-          <button onClick={this.handleAutorun} className="carousel__button">
-            {!timerIdAuto ? 'Autorun' : 'Stop'}
-          </button>
-        </div>
+        {this.childrenArr.length > 1 && (
+          <div className="carousel__controls">
+            <button onClick={this.handlePrevios} className="carousel__button">
+              Previous
+            </button>
+            <button onClick={this.handleNext} className="carousel__button">
+              Next
+            </button>
+            <button onClick={this.handleAutorun} className="carousel__button">
+              {!timerIdAuto ? 'Autorun' : 'Stop'}
+            </button>
+          </div>
+        )}
         <div className="carousel__title">Unknown masterpieces</div>
         <div
           onDragStart={this.handleDragStart}
@@ -403,14 +448,16 @@ export class Carousel extends PureComponent {
               left: -change + 'px'
             }}
           >
-            {children}
+            {this.childrenArr.length ? this.children : <EmptyCarousel />}
           </div>
         </div>
-        <Dots
-          cardsId={childrenArr}
-          activeIndex={currentCard - 1}
-          handlerCheckSlide={this.checkSlide}
-        />
+        {this.childrenArr.length > 1 && (
+          <Dots
+            cardsId={this.childrenArr}
+            activeIndex={currentCard - 1}
+            handlerCheckSlide={this.checkSlide}
+          />
+        )}
       </div>
     )
   }
